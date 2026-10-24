@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akuaponik 3D - Peringkat 4: Elemen Dunia 3D & Sokongan Pembelajaran</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Fonts (Inter) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0f172a;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #webgl-canvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(16, 185, 129, 0.4);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(16, 185, 129, 0.8);
+        }
+    </style>
+</head>
+<body class="relative text-white overflow-hidden">
+
+    <!-- 3D Canvas -->
+    <canvas id="webgl-canvas"></canvas>
+
+    <!-- Header Overlay / HUD -->
+    <div class="absolute top-4 left-4 right-4 flex justify-between items-center pointer-events-none z-10">
+        <div class="bg-slate-900/90 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-700/60 shadow-xl flex items-center gap-3 pointer-events-auto">
+            <div>
+                <h1 class="text-xs md:text-sm font-bold text-emerald-400 flex items-center gap-1.5">
+                    <span>🧪</span> RBT T2: Akuaponik 3D
+                </h1>
+                <p class="text-[10px] md:text-xs text-slate-300">Peringkat 4: Elemen Dunia 3D & Infografik</p>
+            </div>
+            <button id="btn-reset-game" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] px-2.5 py-1 rounded-lg border border-slate-600 transition-all">
+                Reset Kemajuan
+            </button>
+        </div>
+
+        <!-- Inventory / Key Status & Chest Indicators -->
+        <div class="flex items-center gap-2">
+            <div id="badge-pintu1" class="bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/50 text-xs text-slate-400 flex items-center gap-1.5 opacity-50">
+                <span>🔑</span> <span class="hidden sm:inline">Pintu 1</span>
+            </div>
+            <div id="badge-pintu2" class="bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/50 text-xs text-slate-400 flex items-center gap-1.5 opacity-50">
+                <span>🔑</span> <span class="hidden sm:inline">Pintu 2</span>
+            </div>
+            <div id="badge-pintu3" class="bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/50 text-xs text-slate-400 flex items-center gap-1.5 opacity-50">
+                <span>🏆</span> <span class="hidden sm:inline">Pintu Keluar</span>
+            </div>
+            <div class="bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/50 text-xs text-slate-300 font-mono">
+                FPS: <span id="fps-counter" class="text-emerald-400 font-bold">60</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls Helper Overlay (Desktop) -->
+    <div class="hidden md:block absolute bottom-4 left-4 bg-slate-900/85 backdrop-blur-md p-3.5 rounded-2xl border border-slate-700/60 text-xs text-slate-300 pointer-events-none z-10 max-w-xs shadow-xl">
+        <div class="font-bold text-emerald-400 mb-1.5 flex items-center gap-1.5">
+            <span>🎮</span> Kawalan Komputer:
+        </div>
+        <ul class="space-y-1 text-[11px]">
+            <li><kbd class="bg-slate-800 px-1.5 py-0.5 rounded text-white border border-slate-600 font-mono">WASD</kbd> / <kbd class="bg-slate-800 px-1.5 py-0.5 rounded text-white border border-slate-600 font-mono">←↑↓→</kbd> : Bergerak</li>
+            <li><kbd class="bg-slate-800 px-1.5 py-0.5 rounded text-white border border-slate-600 font-mono">Drag Tetikus</kbd> : Putar Kamera</li>
+            <li><kbd class="bg-slate-800 px-1.5 py-0.5 rounded text-white border border-slate-600 font-mono">E</kbd> : Interaksi (Stesen / Bot / Peti)</li>
+        </ul>
+    </div>
+
+    <!-- Mobile Virtual Joystick & Touch Controls -->
+    <div class="md:hidden fixed inset-0 pointer-events-none z-10 flex flex-col justify-between p-6">
+        <div></div> <!-- Spacer -->
+        <div class="flex justify-between items-end pointer-events-auto">
+            <!-- Virtual Joystick Zone -->
+            <div id="joystick-container" class="w-28 h-28 bg-slate-800/50 border-2 border-emerald-500/40 rounded-full relative flex items-center justify-center backdrop-blur-sm touch-none shadow-2xl">
+                <div id="joystick-knob" class="w-10 h-10 bg-emerald-500/90 rounded-full shadow-lg absolute transform transition-transform duration-75"></div>
+            </div>
+
+            <!-- Mobile Action Button -->
+            <button id="btn-interact-mobile" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-bold p-4 rounded-full shadow-2xl border-2 border-emerald-400 active:scale-95 transition-all flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Interaction Prompt Box (Center Screen) -->
+    <div id="interaction-prompt" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-slate-900/95 text-white px-6 py-3 rounded-2xl border-2 border-emerald-500 shadow-2xl backdrop-blur-md pointer-events-none z-20 text-center animate-bounce">
+        <p class="text-xs md:text-sm font-bold text-emerald-400" id="prompt-text">Tekan 'E' atau Butang Interaksi</p>
+    </div>
+
+    <!-- GENERAL DIALOG MODAL (STATIONS, BOT-RBT, CHESTS) -->
+    <div id="station-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div id="modal-card" class="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-2xl p-6 shadow-2xl relative text-left max-h-[90vh] overflow-y-auto custom-scrollbar">
+            
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                <h3 id="modal-title" class="text-base md:text-lg font-bold text-emerald-400 flex items-center gap-2">
+                    <!-- Title Injected Dynamically -->
+                </h3>
+                <button id="close-modal-btn" class="text-slate-400 hover:text-white text-xl font-bold px-2 py-1">✕</button>
+            </div>
+
+            <!-- Modal Body Content -->
+            <div id="modal-body" class="space-y-4 text-xs md:text-sm text-slate-300">
+                <!-- Content Injected Dynamically -->
+            </div>
+
+            <!-- Modal Footer / Action Button -->
+            <div id="modal-footer" class="mt-6 border-t border-slate-800 pt-4 flex justify-between items-center">
+                <div id="modal-feedback" class="text-xs font-semibold"></div>
+                <button id="modal-action-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl transition-all shadow-lg active:scale-95">
+                    Tutup / Sahkan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONFIDENCE SELECTION MODAL -->
+    <div id="confidence-modal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-emerald-500/80 w-full max-w-md rounded-2xl p-6 shadow-2xl text-center">
+            <div class="text-3xl mb-2">🤔</div>
+            <h3 class="text-base md:text-lg font-bold text-white mb-2">Tingkat Keyakinan Anda?</h3>
+            <p class="text-xs text-slate-300 mb-5">Sebelum mengesahkan jawapan, sejauh manakah anda yakin dengan pilihan ini?</p>
+            
+            <div class="space-y-2.5 mb-6">
+                <button data-confidence="Yakin" class="btn-confidence w-full bg-emerald-950/60 hover:bg-emerald-800/80 border border-emerald-500/50 text-emerald-300 font-semibold p-3 rounded-xl transition-all text-xs flex items-center justify-between">
+                    <span>🔥 Saya Sangat Yakin</span>
+                    <span class="text-[10px] bg-emerald-900/80 px-2 py-0.5 rounded text-emerald-200">Kefahaman Tinggi</span>
+                </button>
+                <button data-confidence="Agak-agak" class="btn-confidence w-full bg-amber-950/60 hover:bg-amber-800/80 border border-amber-500/50 text-amber-300 font-semibold p-3 rounded-xl transition-all text-xs flex items-center justify-between">
+                    <span>🤔 Agak-agak Saja</span>
+                    <span class="text-[10px] bg-amber-900/80 px-2 py-0.5 rounded text-amber-200">Perlu Pengukuhan</span>
+                </button>
+                <button data-confidence="Teka" class="btn-confidence w-full bg-indigo-950/60 hover:bg-indigo-800/80 border border-indigo-500/50 text-indigo-300 font-semibold p-3 rounded-xl transition-all text-xs flex items-center justify-between">
+                    <span>🎲 Meneka Sahaja</span>
+                    <span class="text-[10px] bg-indigo-900/80 px-2 py-0.5 rounded text-indigo-200">Sedia Belajar</span>
+                </button>
+            </div>
+            
+            <button id="btn-cancel-confidence" class="text-xs text-slate-400 hover:text-slate-200 underline">
+                Kembali & Semak Jawapan
+            </button>
+        </div>
+    </div>
+
+    <!-- END GAME DASHBOARD MODAL -->
+    <div id="dashboard-modal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-3xl p-6 md:p-8 shadow-2xl relative text-left max-h-[90vh] overflow-y-auto custom-scrollbar">
+            
+            <div class="text-center border-b border-slate-800 pb-5 mb-5">
+                <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs px-3 py-1 rounded-full uppercase tracking-wider font-semibold">Misi Selesai</span>
+                <h2 class="text-xl md:text-2xl font-extrabold text-white mt-2">Papan Pemuka Pencapaian Makmal</h2>
+                <p class="text-xs text-slate-400 mt-1">Ringkasan Prestasi DSKP RBT Tingkatan 2: Reka Bentuk Akuaponik</p>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <div class="bg-slate-800/60 p-3.5 rounded-2xl border border-slate-700/50 text-center">
+                    <div class="text-xs text-slate-400">Jumlah Cubaan</div>
+                    <div id="dash-attempts" class="text-xl font-black text-emerald-400 mt-0.5">0</div>
+                </div>
+                <div class="bg-slate-800/60 p-3.5 rounded-2xl border border-slate-700/50 text-center">
+                    <div class="text-xs text-slate-400">Ketepatan Cubaan 1</div>
+                    <div id="dash-accuracy" class="text-xl font-black text-emerald-400 mt-0.5">0%</div>
+                </div>
+                <div class="bg-slate-800/60 p-3.5 rounded-2xl border border-slate-700/50 text-center">
+                    <div class="text-xs text-slate-400">Dominasi Keyakinan</div>
+                    <div id="dash-confidence" class="text-sm font-bold text-amber-400 mt-1.5">-</div>
+                </div>
+                <div class="bg-slate-800/60 p-3.5 rounded-2xl border border-slate-700/50 text-center">
+                    <div class="text-xs text-slate-400">Status Makmal</div>
+                    <div class="text-xs font-bold text-emerald-400 mt-2">SEIMBANG ✅</div>
+                </div>
+            </div>
+
+            <!-- Detailed Objective Breakdown -->
+            <div class="space-y-3 mb-6">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Maklum Balas Objektif DSKP:</h4>
+                
+                <div id="obj-1-card" class="bg-slate-800/40 p-3.5 rounded-xl border border-slate-700/50 text-xs">
+                    <div class="font-bold text-emerald-300 flex items-center justify-between mb-1">
+                        <span>1. Unsur Utama Akuaponik (Ikan, Bakteria, Tanaman)</span>
+                        <span id="obj-1-status" class="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded">Selesai</span>
+                    </div>
+                    <p id="obj-1-feedback" class="text-slate-300 text-[11px]">Bakteria menukar ammonia daripada sisa ikan kepada nitrat untuk tanaman.</p>
+                </div>
+
+                <div id="obj-2-card" class="bg-slate-800/40 p-3.5 rounded-xl border border-slate-700/50 text-xs">
+                    <div class="font-bold text-emerald-300 flex items-center justify-between mb-1">
+                        <span>2. Reka Bentuk Sistem Akuaponik (Raft, NFT, Ebb & Flow)</span>
+                        <span id="obj-2-status" class="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded">Selesai</span>
+                    </div>
+                    <p id="obj-2-feedback" class="text-slate-300 text-[11px]">Loceng sifon digunakan khusus dalam Ebb & Flow untuk kitaran pasang surut.</p>
+                </div>
+
+                <div id="obj-3-card" class="bg-slate-800/40 p-3.5 rounded-xl border border-slate-700/50 text-xs">
+                    <div class="font-bold text-emerald-300 flex items-center justify-between mb-1">
+                        <span>3. Kitaran Aliran Nitrogen Akuaponik</span>
+                        <span id="obj-3-status" class="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded">Selesai</span>
+                    </div>
+                    <p id="obj-3-feedback" class="text-slate-300 text-[11px]">Urutan kitaran nitrogen lengkap memastikan kebersihan air untuk ikan.</p>
+                </div>
+            </div>
+
+            <!-- Footer Action -->
+            <div class="text-center pt-2">
+                <button id="btn-replay-game" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-8 py-3 rounded-2xl transition-all shadow-xl active:scale-95 text-xs md:text-sm">
+                    🔄 Main Semula / Uji Semula
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN LOGIC SCRIPT -->
+    <script>
+        // --- 1. GAME STATE & LOCALSTORAGE MANAGER ---
+        const DEFAULT_STATE = {
+            station1Completed: false,
+            station2Completed: false,
+            station3Completed: false,
+            door1Unlocked: false,
+            door2Unlocked: false,
+            door3Unlocked: false,
+            chest1Opened: false,
+            chest2Opened: false,
+            attempts: { s1: 0, s2: 0, s3: 0 },
+            firstTrySuccess: { s1: false, s2: false, s3: false },
+            confidenceLog: { s1: null, s2: null, s3: null },
+            playerPosition: { x: 0, y: 0, z: 22 }
+        };
+
+        let gameState = JSON.parse(localStorage.getItem('aquaponics_stage4_save')) || { ...DEFAULT_STATE };
+
+        function saveGameState() {
+            localStorage.setItem('aquaponics_stage4_save', JSON.stringify(gameState));
+            updateHUDStatus();
+        }
+
+        function resetGameState() {
+            localStorage.removeItem('aquaponics_stage4_save');
+            gameState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+            location.reload();
+        }
+
+        // --- 2. THREE.JS & ENVIRONMENT GLOBALS ---
+        const PLAYER_SPEED = 0.13;
+        const PLAYER_RADIUS = 0.45;
+        let scene, camera, renderer;
+        let player;
+        let walls = []; // Collision bounding boxes
+        let platforms = []; // Walkable platforms (viewing deck & ramp)
+        let doorsMesh = {}; // Store door meshes for status changes
+        let stationSpotlights = {};
+        let stationMeshes = {};
+
+        // Input States
+        const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false, e: false };
+        let joystickInput = { x: 0, y: 0 };
+
+        // Interaction States
+        let activeInteractionId = null; // 's1', 's2', 's3', 'exit', 'npc', 'chest1', 'chest2'
+        let isModalOpen = false;
+        let pendingAnswers = null;
+
+        // Camera Control Variables
+        let cameraAngleY = 0;
+        let isDraggingMouse = false;
+        let previousMouseX = 0;
+
+        // FPS Counter
+        let lastTime = performance.now();
+        let frameCount = 0;
+
+        // --- 3. INITIALIZATION ---
+        function init() {
+            const canvas = document.getElementById('webgl-canvas');
+            
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0b132b);
+            scene.fog = new THREE.FogExp2(0x0b132b, 0.032);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            setupLights();
+            buildExtendedMaze();
+            buildViewingPlatform();
+            createPlayer();
+            createStations();
+            createNPCBot();
+            createResourceChests();
+            createDecorations();
+            setupEventListeners();
+            setupJoystick();
+            updateHUDStatus();
+
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        // --- 4. LIGHTING SETUP ---
+        function setupLights() {
+            const ambientLight = new THREE.AmbientLight(0x64748b, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(20, 35, 15);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.near = 0.5;
+            dirLight.shadow.camera.far = 80;
+            dirLight.shadow.camera.left = -25;
+            dirLight.shadow.camera.right = 25;
+            dirLight.shadow.camera.top = 35;
+            dirLight.shadow.camera.bottom = -35;
+            scene.add(dirLight);
+
+            // Create Station Spotlights
+            function addSpotlight(id, x, z, color = 0x38bdf8) {
+                const spot = new THREE.SpotLight(color, 2.5, 20, Math.PI / 6, 0.5);
+                spot.position.set(x, 10, z);
+                spot.target.position.set(x, 0, z);
+                scene.add(spot);
+                scene.add(spot.target);
+                stationSpotlights[id] = spot;
+            }
+
+            addSpotlight('s1', 0, 18, 0x38bdf8);
+            addSpotlight('s2', 0, -2, 0x10b981);
+            addSpotlight('s3', 0, -22, 0x818cf8);
+        }
+
+        // --- 5. EXTENDED LAB MAZE BUILDING & DOORS ---
+        function buildExtendedMaze() {
+            // Main Floor
+            const floorGeo = new THREE.PlaneGeometry(50, 70);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            const gridHelper = new THREE.GridHelper(70, 70, 0x10b981, 0x334155);
+            gridHelper.position.y = 0.01;
+            scene.add(gridHelper);
+
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4 });
+
+            function createWall(x, z, width, depth, height = 3.5) {
+                const wallGeo = new THREE.BoxGeometry(width, height, depth);
+                const wall = new THREE.Mesh(wallGeo, wallMat);
+                wall.position.set(x, height / 2, z);
+                wall.castShadow = true;
+                wall.receiveShadow = true;
+                scene.add(wall);
+
+                const box = new THREE.Box3().setFromObject(wall);
+                walls.push({ box: box, type: 'wall' });
+            }
+
+            function createDoor(id, x, z, width, depth) {
+                const height = 3.5;
+                const isUnlocked = gameState[`${id}Unlocked`];
+                const doorColor = isUnlocked ? 0x10b981 : 0xef4444;
+
+                const doorGroup = new THREE.Group();
+                const doorGeo = new THREE.BoxGeometry(width, height, depth);
+                const doorMat = new THREE.MeshStandardMaterial({ color: doorColor, roughness: 0.3, metalness: 0.5, transparent: true, opacity: isUnlocked ? 0.3 : 0.95 });
+                const doorMesh = new THREE.Mesh(doorGeo, doorMat);
+                doorMesh.position.y = height / 2;
+                doorMesh.castShadow = true;
+                doorGroup.add(doorMesh);
+
+                // Indicator Status Lamp on top of door
+                const lampGeo = new THREE.SphereGeometry(0.3, 16, 16);
+                const lampMat = new THREE.MeshBasicMaterial({ color: doorColor });
+                const lamp = new THREE.Mesh(lampGeo, lampMat);
+                lamp.position.set(0, height + 0.4, 0);
+                lamp.name = "statusLamp";
+                doorGroup.add(lamp);
+
+                doorGroup.position.set(x, 0, z);
+                scene.add(doorGroup);
+
+                const box = new THREE.Box3().setFromObject(doorMesh);
+                const wallObj = { box: box, type: 'door', id: id, mesh: doorGroup, doorMesh: doorMesh, lamp: lamp };
+                walls.push(wallObj);
+                doorsMesh[id] = wallObj;
+
+                if (isUnlocked) unlockDoorMeshVisual(id);
+            }
+
+            // Outer Perimeter Walls
+            createWall(0, -35, 50, 1);
+            createWall(0, 35, 50, 1);
+            createWall(-25, 0, 1, 70);
+            createWall(25, 0, 1, 70);
+
+            // Internal Maze Division Walls & Barriers
+            createWall(-10, 20, 15, 1);
+            createWall(10, 25, 15, 1);
+
+            // Door 1 Barrier (Z: 10)
+            createWall(-14, 10, 22, 1);
+            createWall(14, 10, 22, 1);
+            createDoor('door1', 0, 10, 6, 1);
+
+            // Section 2: Hydro-Lab (Z: -5 to 10)
+            createWall(-8, 0, 1, 18);
+            createWall(8, -2, 1, 14);
+
+            // Door 2 Barrier (Z: -12)
+            createWall(-14, -12, 22, 1);
+            createWall(14, -12, 22, 1);
+            createDoor('door2', 0, -12, 6, 1);
+
+            // Section 3: Final Console (Z: -30 to -12)
+            createWall(-10, -22, 1, 18);
+            createWall(10, -22, 1, 18);
+
+            // Door 3 / Exit Barrier (Z: -30)
+            createWall(-14, -30, 22, 1);
+            createWall(14, -30, 22, 1);
+            createDoor('door3', 0, -30, 6, 1);
+        }
+
+        function unlockDoorMeshVisual(doorId) {
+            const doorObj = doorsMesh[doorId];
+            if (doorObj) {
+                doorObj.doorMesh.material.color.setHex(0x10b981);
+                doorObj.doorMesh.material.opacity = 0.25;
+                doorObj.lamp.material.color.setHex(0x10b981);
+                // Remove collision box so player can pass
+                walls = walls.filter(w => w.id !== doorId);
+            }
+        }
+
+        // --- 6. ELEVATED VIEWING PLATFORM & RAMP ---
+        function buildViewingPlatform() {
+            const deckGroup = new THREE.Group();
+            const deckMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
+            const railMat = new THREE.MeshStandardMaterial({ color: 0x10b981 });
+
+            // Platform Deck (X: -18, Z: 5, Height: 3.0)
+            const deckGeo = new THREE.BoxGeometry(8, 0.4, 12);
+            const deck = new THREE.Mesh(deckGeo, deckMat);
+            deck.position.set(-18, 3.0, 5);
+            deck.receiveShadow = true;
+            deck.castShadow = true;
+            deckGroup.add(deck);
+
+            // Support Pillars
+            const pillarGeo = new THREE.CylinderGeometry(0.2, 0.2, 3.0);
+            const pPositions = [[-21, 1.5, -0.5], [-15, 1.5, -0.5], [-21, 1.5, 10.5], [-15, 1.5, 10.5]];
+            pPositions.forEach(pos => {
+                const pillar = new THREE.Mesh(pillarGeo, deckMat);
+                pillar.position.set(pos[0], pos[1], pos[2]);
+                deckGroup.add(pillar);
+            });
+
+            // Walkable Ramp leading up to Deck
+            const rampGeo = new THREE.BoxGeometry(3, 0.2, 10);
+            const ramp = new THREE.Mesh(rampGeo, deckMat);
+            ramp.position.set(-18, 1.45, 15.5);
+            ramp.rotation.x = 0.29; // Slope angle up to 3.0m height
+            ramp.receiveShadow = true;
+            deckGroup.add(ramp);
+
+            scene.add(deckGroup);
+
+            // Add platform bounding metadata for Y-elevation stepping
+            platforms.push({
+                type: 'deck',
+                minX: -22, maxX: -14,
+                minZ: -1, maxZ: 11,
+                y: 3.2
+            });
+
+            platforms.push({
+                type: 'ramp',
+                minX: -19.5, maxX: -16.5,
+                minZ: 10.5, maxZ: 20.5,
+                startY: 0, endY: 3.2
+            });
+        }
+
+        // --- 7. PLAYER CREATION ---
+        function createPlayer() {
+            player = new THREE.Group();
+
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.3 });
+            const headMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2 });
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+
+            // Torso
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.4), bodyMat);
+            torso.position.y = 0.85;
+            torso.castShadow = true;
+            player.add(torso);
+
+            // Head
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 0.45), headMat);
+            head.position.y = 1.55;
+            head.castShadow = true;
+            player.add(head);
+
+            // Visor
+            const visor = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.1, 0.05), eyeMat);
+            visor.position.set(0, 1.58, 0.23);
+            player.add(visor);
+
+            // Backpack
+            const pack = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.2), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+            pack.position.set(0, 0.9, -0.28);
+            player.add(pack);
+
+            player.position.set(gameState.playerPosition.x, gameState.playerPosition.y, gameState.playerPosition.z);
+            scene.add(player);
+        }
+
+        // --- 8. STATIONS CREATION ---
+        function createStations() {
+            // Station 1: Fish Tank & Biofilter (Z: 18)
+            const s1Group = new THREE.Group();
+            const s1Base = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.7, 0.4, 16), new THREE.MeshStandardMaterial({ color: 0x0284c7 }));
+            s1Base.position.y = 0.2;
+            s1Group.add(s1Base);
+
+            const tank = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 1.2), new THREE.MeshPhysicalMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.65, roughness: 0.1 }));
+            tank.position.y = 1.0;
+            s1Group.add(tank);
+
+            const holo1 = new THREE.Mesh(new THREE.OctahedronGeometry(0.35), new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true }));
+            holo1.position.y = 2.2;
+            holo1.name = "holo";
+            s1Group.add(holo1);
+
+            s1Group.position.set(0, 0, 18);
+            scene.add(s1Group);
+            stationMeshes['s1'] = s1Group;
+
+            // Station 2: Hydro-Lab (Z: -2)
+            const s2Group = new THREE.Group();
+            const s2Base = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.7, 0.4, 16), new THREE.MeshStandardMaterial({ color: 0x10b981 }));
+            s2Base.position.y = 0.2;
+            s2Group.add(s2Base);
+
+            const bed = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.6, 1.4), new THREE.MeshStandardMaterial({ color: 0x059669 }));
+            bed.position.y = 0.7;
+            s2Group.add(bed);
+
+            const holo2 = new THREE.Mesh(new THREE.OctahedronGeometry(0.35), new THREE.MeshBasicMaterial({ color: 0x10b981, wireframe: true }));
+            holo2.position.y = 2.2;
+            holo2.name = "holo";
+            s2Group.add(holo2);
+
+            s2Group.position.set(0, 0, -2);
+            scene.add(s2Group);
+            stationMeshes['s2'] = s2Group;
+
+            // Station 3: Ecosystem Console (Z: -22)
+            const s3Group = new THREE.Group();
+            const s3Base = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.2, 1.0), new THREE.MeshStandardMaterial({ color: 0x6366f1 }));
+            s3Base.position.y = 0.6;
+            s3Group.add(s3Base);
+
+            const screen = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.9, 0.1), new THREE.MeshBasicMaterial({ color: 0x818cf8 }));
+            screen.position.set(0, 1.5, 0.2);
+            screen.rotation.x = -0.2;
+            s3Group.add(screen);
+
+            const holo3 = new THREE.Mesh(new THREE.OctahedronGeometry(0.35), new THREE.MeshBasicMaterial({ color: 0x818cf8, wireframe: true }));
+            holo3.position.y = 2.4;
+            holo3.name = "holo";
+            s3Group.add(holo3);
+
+            s3Group.position.set(0, 0, -22);
+            scene.add(s3Group);
+            stationMeshes['s3'] = s3Group;
+
+            // Exit Portal / Door 3 Area (Z: -33)
+            const exitPortal = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.1, 16, 32), new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
+            exitPortal.position.set(0, 2, -33);
+            scene.add(exitPortal);
+            stationMeshes['exit'] = exitPortal;
+        }
+
+        // --- 9. CREATING NPC BOT-RBT & RESOURCE CHESTS ---
+        function createNPCBot() {
+            const npcGroup = new THREE.Group();
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.3 }); // Gold/Yellow Bot
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+
+            // Sphere Head
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), bodyMat);
+            head.position.y = 1.3;
+            npcGroup.add(head);
+
+            // Eye Screen
+            const eye = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.1, 0.1), eyeMat);
+            eye.position.set(0, 1.35, 0.35);
+            npcGroup.add(eye);
+
+            // Levitating Base
+            const base = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.4, 0.6), bodyMat);
+            base.position.y = 0.7;
+            npcGroup.add(base);
+
+            // Hover ring
+            const ring = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.04, 8, 24), new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
+            ring.rotation.x = Math.PI / 2;
+            ring.position.y = 0.4;
+            npcGroup.add(ring);
+
+            npcGroup.position.set(0, 0, 14); // Central corridor intersection
+            npcGroup.name = "npcGroup";
+            scene.add(npcGroup);
+            stationMeshes['npc'] = npcGroup;
+        }
+
+        function createResourceChests() {
+            function buildChestMesh(colorHex) {
+                const chest = new THREE.Group();
+                const box = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.6), new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.4 }));
+                box.position.y = 0.25;
+                box.castShadow = true;
+                chest.add(box);
+
+                const lid = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.15, 0.62), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2 }));
+                lid.position.y = 0.55;
+                lid.name = "lid";
+                chest.add(lid);
+
+                return chest;
+            }
+
+            // Chest 1 near Station 1 (Z: 20, X: 6)
+            const chest1 = buildChestMesh(0x0284c7);
+            chest1.position.set(6, 0, 20);
+            scene.add(chest1);
+            stationMeshes['chest1'] = chest1;
+
+            // Chest 2 near Station 2 (Z: 2, X: -6)
+            const chest2 = buildChestMesh(0x059669);
+            chest2.position.set(-6, 0, 2);
+            scene.add(chest2);
+            stationMeshes['chest2'] = chest2;
+        }
+
+        function createDecorations() {
+            // Vertical Aquaponics Plant Racks
+            function createPlantRack(x, z) {
+                const rack = new THREE.Group();
+                const frame = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.8, 1.8), new THREE.MeshStandardMaterial({ color: 0x475569 }));
+                frame.position.y = 1.4;
+                rack.add(frame);
+
+                for (let i = 0; i < 3; i++) {
+                    const pot = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 1.6), new THREE.MeshStandardMaterial({ color: 0x10b981 }));
+                    pot.position.set(0.2, 0.6 + i * 0.8, 0);
+                    rack.add(pot);
+                }
+                rack.position.set(x, 0, z);
+                scene.add(rack);
+            }
+
+            createPlantRack(-8, 18);
+            createPlantRack(8, 18);
+            createPlantRack(6, -4);
+        }
+
+        // --- 10. CONTROLS & EVENT LISTENERS ---
+        function setupEventListeners() {
+            window.addEventListener('keydown', (e) => {
+                if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true;
+                if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
+
+                if ((e.key === 'e' || e.key === 'E') && activeInteractionId && !isModalOpen) {
+                    handleInteraction();
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false;
+                if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
+            });
+
+            window.addEventListener('mousedown', (e) => {
+                if (e.target.tagName === 'CANVAS') {
+                    isDraggingMouse = true;
+                    previousMouseX = e.clientX;
+                }
+            });
+
+            window.addEventListener('mouseup', () => isDraggingMouse = false);
+            window.addEventListener('mousemove', (e) => {
+                if (isDraggingMouse) {
+                    const deltaX = e.clientX - previousMouseX;
+                    cameraAngleY -= deltaX * 0.005;
+                    previousMouseX = e.clientX;
+                }
+            });
+
+            document.getElementById('btn-interact-mobile').addEventListener('click', () => {
+                if (activeInteractionId && !isModalOpen) handleInteraction();
+            });
+
+            document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+            document.getElementById('btn-reset-game').addEventListener('click', resetGameState);
+            document.getElementById('btn-replay-game').addEventListener('click', resetGameState);
+
+            document.querySelectorAll('.btn-confidence').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const level = e.currentTarget.getAttribute('data-confidence');
+                    confirmSubmissionWithConfidence(level);
+                });
+            });
+
+            document.getElementById('btn-cancel-confidence').addEventListener('click', () => {
+                document.getElementById('confidence-modal').classList.add('hidden');
+            });
+        }
+
+        // --- 11. JOYSTICK LOGIC ---
+        function setupJoystick() {
+            const container = document.getElementById('joystick-container');
+            const knob = document.getElementById('joystick-knob');
+            let joystickTouchId = null;
+            let center = { x: 0, y: 0 };
+
+            container.addEventListener('touchstart', (e) => {
+                if (joystickTouchId !== null) return;
+                const touch = e.changedTouches[0];
+                joystickTouchId = touch.identifier;
+                const rect = container.getBoundingClientRect();
+                center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                updateJoystick(touch.clientX, touch.clientY);
+            }, { passive: false });
+
+            window.addEventListener('touchmove', (e) => {
+                if (joystickTouchId === null) return;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === joystickTouchId) {
+                        updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+                        break;
+                    }
+                }
+            }, { passive: false });
+
+            const resetJoystick = (e) => {
+                if (joystickTouchId === null) return;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === joystickTouchId) {
+                        joystickTouchId = null;
+                        joystickInput = { x: 0, y: 0 };
+                        knob.style.transform = `translate(0px, 0px)`;
+                        break;
+                    }
+                }
+            };
+
+            window.addEventListener('touchend', resetJoystick);
+            window.addEventListener('touchcancel', resetJoystick);
+
+            function updateJoystick(clientX, clientY) {
+                const maxDistance = 40;
+                let dx = clientX - center.x;
+                let dy = clientY - center.y;
+                const distance = Math.hypot(dx, dy);
+
+                if (distance > maxDistance) {
+                    dx = (dx / distance) * maxDistance;
+                    dy = (dy / distance) * maxDistance;
+                }
+
+                knob.style.transform = `translate(${dx}px, ${dy}px)`;
+                joystickInput.x = dx / maxDistance;
+                joystickInput.y = dy / maxDistance;
+            }
+        }
+
+        // --- 12. COLLISION & ELEVATION STEPPING ---
+        function checkCollisions(targetPos) {
+            const playerBox = new THREE.Box3(
+                new THREE.Vector3(targetPos.x - PLAYER_RADIUS, targetPos.y, targetPos.z - PLAYER_RADIUS),
+                new THREE.Vector3(targetPos.x + PLAYER_RADIUS, targetPos.y + 2, targetPos.z + PLAYER_RADIUS)
+            );
+
+            for (let i = 0; i < walls.length; i++) {
+                if (playerBox.intersectsBox(walls[i].box)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function calculateElevation(x, z) {
+            // Check if on Viewing Deck
+            const deck = platforms[0];
+            if (x >= deck.minX && x <= deck.maxX && z >= deck.minZ && z <= deck.maxZ) {
+                return deck.y;
+            }
+
+            // Check if on Ramp
+            const ramp = platforms[1];
+            if (x >= ramp.minX && x <= ramp.maxX && z >= ramp.minZ && z <= ramp.maxZ) {
+                const progress = (ramp.maxZ - z) / (ramp.maxZ - ramp.minZ);
+                return ramp.startY + progress * (ramp.endY - ramp.startY);
+            }
+
+            return 0; // Floor height
+        }
+
+        // --- 13. MOVEMENT & GAME LOOP ---
+        function updatePlayerMovement() {
+            if (isModalOpen) return;
+
+            let moveX = 0;
+            let moveZ = 0;
+
+            if (keys.w || keys.ArrowUp) moveZ -= 1;
+            if (keys.s || keys.ArrowDown) moveZ += 1;
+            if (keys.a || keys.ArrowLeft) moveX -= 1;
+            if (keys.d || keys.ArrowRight) moveX += 1;
+
+            if (Math.abs(joystickInput.x) > 0.1 || Math.abs(joystickInput.y) > 0.1) {
+                moveX = joystickInput.x;
+                moveZ = joystickInput.y;
+            }
+
+            const length = Math.hypot(moveX, moveZ);
+            if (length > 0) {
+                moveX /= length > 1 ? length : 1;
+                moveZ /= length > 1 ? length : 1;
+
+                const sin = Math.sin(cameraAngleY);
+                const cos = Math.cos(cameraAngleY);
+
+                const adjustedX = moveX * cos - moveZ * sin;
+                const adjustedZ = moveX * sin + moveZ * cos;
+
+                const nextPosX = player.position.x + adjustedX * PLAYER_SPEED;
+                const nextPosZ = player.position.z + adjustedZ * PLAYER_SPEED;
+                const targetY = calculateElevation(nextPosX, nextPosZ);
+
+                if (!checkCollisions({ x: nextPosX, y: targetY, z: player.position.z })) {
+                    player.position.x = nextPosX;
+                }
+
+                if (!checkCollisions({ x: player.position.x, y: targetY, z: nextPosZ })) {
+                    player.position.z = nextPosZ;
+                }
+
+                player.position.y = THREE.MathUtils.lerp(player.position.y, targetY, 0.2);
+
+                const targetAngle = Math.atan2(adjustedX, adjustedZ);
+                player.rotation.y = THREE.MathUtils.lerp(player.rotation.y, targetAngle, 0.2);
+
+                // Save Checkpoint
+                gameState.playerPosition = { x: player.position.x, y: player.position.y, z: player.position.z };
+                saveGameState();
+            }
+        }
+
+        function updateCamera() {
+            const cameraDistance = 6.0;
+            const cameraHeight = 4.2;
+
+            const targetCamX = player.position.x + cameraDistance * Math.sin(cameraAngleY);
+            const targetCamZ = player.position.z + cameraDistance * Math.cos(cameraAngleY);
+            const targetCamY = player.position.y + cameraHeight;
+
+            camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCamX, 0.1);
+            camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCamY, 0.1);
+            camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetCamZ, 0.1);
+
+            camera.lookAt(player.position.x, player.position.y + 1.0, player.position.z);
+        }
+
+        function checkProximityAndInteractions() {
+            const promptElement = document.getElementById('interaction-prompt');
+            const promptText = document.getElementById('prompt-text');
+            const btnMobileInteract = document.getElementById('btn-interact-mobile');
+
+            activeInteractionId = null;
+
+            const targets = [
+                { id: 's1', pos: stationMeshes['s1'].position, label: 'Stesen 1: Padanan Elemen Akuaponik' },
+                { id: 's2', pos: stationMeshes['s2'].position, label: 'Stesen 2: Model Hydro-Lab (Sistem)' },
+                { id: 's3', pos: stationMeshes['s3'].position, label: 'Stesen 3: Konsol Kitaran Nitrogen' },
+                { id: 'exit', pos: stationMeshes['exit'].position, label: 'Pintu Keluar Makmal (Papan Pemuka)' },
+                { id: 'npc', pos: stationMeshes['npc'].position, label: 'Bercakap dengan Bot-RBT (Petunjuk)' },
+                { id: 'chest1', pos: stationMeshes['chest1'].position, label: 'Buka Peti Infografik 1 (Kitaran Nitrogen)' },
+                { id: 'chest2', pos: stationMeshes['chest2'].position, label: 'Buka Peti Infografik 2 (Perbandingan Sistem)' }
+            ];
+
+            for (let t of targets) {
+                if (player.position.distanceTo(t.pos) < 2.8) {
+                    activeInteractionId = t.id;
+                    promptText.innerText = t.label;
+                    break;
+                }
+            }
+
+            if (activeInteractionId && !isModalOpen) {
+                promptElement.classList.remove('hidden');
+                btnMobileInteract.classList.remove('hidden');
+            } else {
+                promptElement.classList.add('hidden');
+                btnMobileInteract.classList.add('hidden');
+            }
+
+            // Animate floating elements & NPC Bot
+            Object.values(stationMeshes).forEach(mesh => {
+                const holo = mesh.getObjectByName && mesh.getObjectByName("holo");
+                if (holo) {
+                    holo.rotation.y += 0.02;
+                    holo.position.y = 2.2 + Math.sin(Date.now() * 0.003) * 0.1;
+                }
+            });
+
+            if (stationMeshes['npc']) {
+                stationMeshes['npc'].position.y = Math.sin(Date.now() * 0.004) * 0.15;
+            }
+        }
+
+        function updateFPS() {
+            frameCount++;
+            const now = performance.now();
+            if (now - lastTime >= 1000) {
+                document.getElementById('fps-counter').innerText = frameCount;
+                frameCount = 0;
+                lastTime = now;
+            }
+        }
+
+        // --- 14. INTERACTION DISPATCHER ---
+        function handleInteraction() {
+            if (activeInteractionId === 'npc') {
+                openNPCModal();
+            } else if (activeInteractionId === 'chest1') {
+                openChestModal(1);
+            } else if (activeInteractionId === 'chest2') {
+                openChestModal(2);
+            } else if (activeInteractionId === 's1') {
+                openStation1Modal();
+            } else if (activeInteractionId === 's2') {
+                if (!gameState.station1Completed) {
+                    alert("⚠️ Stesen Terkunci! Selesaikan Cabaran di Stesen 1 terlebih dahulu.");
+                    return;
+                }
+                openStation2Modal();
+            } else if (activeInteractionId === 's3') {
+                if (!gameState.station2Completed) {
+                    alert("⚠️ Stesen Terkunci! Selesaikan Cabaran di Stesen 2 terlebih dahulu.");
+                    return;
+                }
+                openStation3Modal();
+            } else if (activeInteractionId === 'exit') {
+                if (!gameState.station3Completed) {
+                    alert("⚠️ Pintu Keluar Terkunci! Selesaikan Misi Akhir di Stesen 3.");
+                    return;
+                }
+                openDashboardModal();
+            }
+        }
+
+        // --- NPC DIALOG MODAL ---
+        function openNPCModal() {
+            isModalOpen = true;
+            document.getElementById('station-modal').classList.remove('hidden');
+            document.getElementById('modal-title').innerHTML = `<span>🤖</span> Bot-RBT (Pembantu Makmal)`;
+
+            const body = document.getElementById('modal-body');
+            body.innerHTML = `
+                <div class="bg-amber-950/40 border border-amber-500/30 p-3.5 rounded-xl flex items-start gap-3">
+                    <span class="text-2xl">💡</span>
+                    <div class="text-xs text-slate-200 space-y-1.5">
+                        <p class="font-bold text-amber-300">Salam Pengembara Makmal!</p>
+                        <p>Saya <strong>Bot-RBT</strong>. Tugas saya ialah membantu anda memahami konsep Reka Bentuk Akuaponik:</p>
+                        <ul class="list-disc pl-4 space-y-1 text-slate-300">
+                            <li><strong>Stesen 1:</strong> Memerlukan anda memadankan 3 peranan utama (Ikan, Bakteria, Tanaman).</li>
+                            <li><strong>Stesen 2:</strong> Membandingkan 3 reka bentuk sistem (NFT, Raft, Ebb & Flow).</li>
+                            <li><strong>Stesen 3:</strong> Mengatur urutan Kitaran Nitrogen lengkap.</li>
+                        </ul>
+                        <p class="text-emerald-400 font-semibold pt-1">💡 Petua: Cari Peti Infografik di sekitar makmal untuk jawapan pantas!</p>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('modal-feedback').innerText = "";
+            const actionBtn = document.getElementById('modal-action-btn');
+            actionBtn.innerText = "Terima Kasih, Bot!";
+            actionBtn.onclick = closeModal;
+        }
+
+        // --- INFOGRAPHIC CHEST MODALS ---
+        function openChestModal(chestNum) {
+            isModalOpen = true;
+            document.getElementById('station-modal').classList.remove('hidden');
+
+            const body = document.getElementById('modal-body');
+            const actionBtn = document.getElementById('modal-action-btn');
+
+            if (chestNum === 1) {
+                gameState.chest1Opened = true;
+                document.getElementById('modal-title').innerHTML = `<span>📦</span> Peti Infografik 1: Kitaran Nitrogen Akuaponik`;
+                body.innerHTML = `
+                    <div class="space-y-3">
+                        <p class="text-xs text-slate-300">Nota Rujukan Pantas Kitaran Nitrogen:</p>
+                        <div class="bg-slate-800 p-3.5 rounded-xl border border-slate-700 space-y-2 text-xs">
+                            <div class="flex items-center gap-2 text-emerald-400 font-bold">
+                                <span>🐟 Ikan</span> ➔ <span>Menghasilkan Ammonia daripada sisa makanan & najis.</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-emerald-400 font-bold">
+                                <span>🦠 Bakteria</span> ➔ <span>Pengurai yang menukar Ammonia beracun kepada Nitrat.</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-emerald-400 font-bold">
+                                <span>🌱 Tanaman</span> ➔ <span>Menyerap Nitrat sebagai baja nutrien semula jadi.</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-emerald-400 font-bold">
+                                <span>💧 Air Bersih</span> ➔ <span>Disalurkan semula ke dalam tangki ikan.</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                gameState.chest2Opened = true;
+                document.getElementById('modal-title').innerHTML = `<span>📦</span> Peti Infografik 2: Perbandingan Sistem Hydro-Lab`;
+                body.innerHTML = `
+                    <div class="space-y-3">
+                        <p class="text-xs text-slate-300">Perbandingan 3 Reka Bentuk Sistem Akuaponik:</p>
+                        <div class="grid grid-cols-1 gap-2 text-xs">
+                            <div class="bg-slate-800 p-3 rounded-xl border border-slate-700">
+                                <span class="font-bold text-emerald-400">1. NFT (Nutrient Film Technique):</span>
+                                <p class="text-slate-300 text-[11px] mt-0.5">Aliran air yang sangat nipis mengalir secara berterusan melepasi akar tanaman.</p>
+                            </div>
+                            <div class="bg-slate-800 p-3 rounded-xl border border-slate-700">
+                                <span class="font-bold text-emerald-400">2. Ebb & Flow (Pasang Surut):</span>
+                                <p class="text-slate-300 text-[11px] mt-0.5">Menggunakan <strong>Loceng Sifon (Bell Siphon)</strong> untuk mengalirkan air secara automatik.</p>
+                            </div>
+                            <div class="bg-slate-800 p-3 rounded-xl border border-slate-700">
+                                <span class="font-bold text-emerald-400">3. Raft (Terapung):</span>
+                                <p class="text-slate-300 text-[11px] mt-0.5">Akar tanaman terendam terus dalam takungan air menggunakan kepingan polisterin.</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            saveGameState();
+            document.getElementById('modal-feedback').innerText = "";
+            actionBtn.innerText = "Simpan Nota & Tutup";
+            actionBtn.onclick = closeModal;
+        }
+
+        // --- STATION MODALS & CONFIDENCE LOGIC ---
+        function openStation1Modal() {
+            isModalOpen = true;
+            document.getElementById('station-modal').classList.remove('hidden');
+            document.getElementById('modal-title').innerHTML = `<span>🐟</span> Stesen 1: Padanan Elemen Utama Akuaponik`;
+
+            const body = document.getElementById('modal-body');
+            body.innerHTML = `
+                <p class="text-slate-300">Padankan elemen utama akuaponik dengan peranan yang tepat dalam ekosistem:</p>
+                <div class="space-y-3 mt-3">
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700 flex justify-between items-center">
+                        <span class="font-bold text-emerald-400">1. Ikan</span>
+                        <select id="match-ikan" class="bg-slate-900 text-white p-2 rounded-lg border border-slate-600 text-xs focus:outline-none focus:border-emerald-500">
+                            <option value="">-- Pilih Peranan --</option>
+                            <option value="ammonia">Menghasilkan ammonia (sisa)</option>
+                            <option value="pengurai">Pengurai ammonia kepada nitrat</option>
+                            <option value="nitrat">Penyerap nitrat sebagai nutrien</option>
+                        </select>
+                    </div>
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700 flex justify-between items-center">
+                        <span class="font-bold text-emerald-400">2. Bakteria</span>
+                        <select id="match-bakteria" class="bg-slate-900 text-white p-2 rounded-lg border border-slate-600 text-xs focus:outline-none focus:border-emerald-500">
+                            <option value="">-- Pilih Peranan --</option>
+                            <option value="ammonia">Menghasilkan ammonia (sisa)</option>
+                            <option value="pengurai">Pengurai ammonia kepada nitrat</option>
+                            <option value="nitrat">Penyerap nitrat sebagai nutrien</option>
+                        </select>
+                    </div>
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700 flex justify-between items-center">
+                        <span class="font-bold text-emerald-400">3. Tanaman</span>
+                        <select id="match-tanaman" class="bg-slate-900 text-white p-2 rounded-lg border border-slate-600 text-xs focus:outline-none focus:border-emerald-500">
+                            <option value="">-- Pilih Peranan --</option>
+                            <option value="ammonia">Menghasilkan ammonia (sisa)</option>
+                            <option value="pengurai">Pengurai ammonia kepada nitrat</option>
+                            <option value="nitrat">Penyerap nitrat sebagai nutrien</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('modal-feedback').innerText = "";
+            const actionBtn = document.getElementById('modal-action-btn');
+            actionBtn.innerText = gameState.station1Completed ? "Diselesaikan ✅" : "Hantar Jawapan";
+            actionBtn.onclick = () => {
+                if (gameState.station1Completed) { closeModal(); return; }
+                const ansIkan = document.getElementById('match-ikan').value;
+                const ansBakteria = document.getElementById('match-bakteria').value;
+                const ansTanaman = document.getElementById('match-tanaman').value;
+
+                if (!ansIkan || !ansBakteria || !ansTanaman) {
+                    document.getElementById('modal-feedback').className = "text-amber-400 text-xs font-semibold";
+                    document.getElementById('modal-feedback').innerText = "⚠️ Sila jawab semua padanan!";
+                    return;
+                }
+
+                pendingAnswers = { station: 's1', isCorrect: (ansIkan === 'ammonia' && ansBakteria === 'pengurai' && ansTanaman === 'nitrat') };
+                openConfidenceModal();
+            };
+        }
+
+        function openStation2Modal() {
+            isModalOpen = true;
+            document.getElementById('station-modal').classList.remove('hidden');
+            document.getElementById('modal-title').innerHTML = `<span>🌱</span> Stesen 2: Identifikasi Reka Bentuk Sistem Hydro-Lab`;
+
+            const body = document.getElementById('modal-body');
+            body.innerHTML = `
+                <p class="text-slate-300">Kenal pasti ciri sistem akuaponik berikut berdasarkan komponen kunci:</p>
+                <div class="space-y-3 mt-3">
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700 space-y-2">
+                        <p class="font-semibold text-emerald-300 text-xs">1. Aliran air nipis mengalir secara berterusan melepasi akar tanaman:</p>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-1.5"><input type="radio" name="sys1" value="NFT"> NFT</label>
+                            <label class="flex items-center gap-1.5"><input type="radio" name="sys1" value="Raft"> Raft</label>
+                            <label class="flex items-center gap-1.5"><input type="radio" name="sys1" value="Ebb"> Ebb & Flow</label>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700 space-y-2">
+                        <p class="font-semibold text-emerald-300 text-xs">2. Menggunakan komponen Loceng Sifon (Bell Siphon) untuk kawalan kitaran pasang surut:</p>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-1.5"><input type="radio" name="sys2" value="NFT"> NFT</label>
+                            <label class="flex items-center gap-1.5"><input type="radio" name="sys2" value="Raft"> Raft</label>
+                            <label class="flex items-center gap-1.5"><input type="radio" name="sys2" value="Ebb"> Ebb & Flow</label>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700 space-y-2">
+                        <p class="font-semibold text-emerald-300 text-xs">3. Akar tanaman terendam terus di dalam takungan air yang terapung menggunakan kepingan polisterin:</p>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-1.5"><input type="radio" name="sys3" value="NFT"> NFT</label>
+                            <label class="flex items-center gap-1.5"><input type="radio" name="sys3" value="Raft"> Raft</label>
+                            <label class="flex items-center gap-1.5"><input type="radio" name="sys3" value="Ebb"> Ebb & Flow</label>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('modal-feedback').innerText = "";
+            const actionBtn = document.getElementById('modal-action-btn');
+            actionBtn.innerText = gameState.station2Completed ? "Diselesaikan ✅" : "Hantar Jawapan";
+            actionBtn.onclick = () => {
+                if (gameState.station2Completed) { closeModal(); return; }
+                const s1 = document.querySelector('input[name="sys1"]:checked')?.value;
+                const s2 = document.querySelector('input[name="sys2"]:checked')?.value;
+                const s3 = document.querySelector('input[name="sys3"]:checked')?.value;
+
+                if (!s1 || !s2 || !s3) {
+                    document.getElementById('modal-feedback').className = "text-amber-400 text-xs font-semibold";
+                    document.getElementById('modal-feedback').innerText = "⚠️ Sila pilih jawapan bagi setiap soalan!";
+                    return;
+                }
+
+                pendingAnswers = { station: 's2', isCorrect: (s1 === 'NFT' && s2 === 'Ebb' && s3 === 'Raft') };
+                openConfidenceModal();
+            };
+        }
+
+        function openStation3Modal() {
+            isModalOpen = true;
+            document.getElementById('station-modal').classList.remove('hidden');
+            document.getElementById('modal-title').innerHTML = `<span>🖥️</span> Misi Akhir: Konsol Kitaran Nitrogen Akuaponik`;
+
+            const body = document.getElementById('modal-body');
+            body.innerHTML = `
+                <p class="text-slate-300">Susun urutan aliran ekosistem akuaponik yang seimbang dari awal hingga akhir:</p>
+                <div class="space-y-2.5 mt-3">
+                    <div class="flex items-center gap-2">
+                        <span class="bg-emerald-600 text-white font-bold w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
+                        <select id="seq-1" class="bg-slate-800 text-white p-2 rounded-xl border border-slate-700 w-full text-xs">
+                            <option value="">-- Langkah 1 --</option>
+                            <option value="A">Ikan menghasilkan Ammonia (sisa buangan)</option>
+                            <option value="B">Bakteria mengurai Ammonia kepada Nitrat</option>
+                            <option value="C">Tanaman menyerap Nitrat sebagai nutrien</option>
+                            <option value="D">Air bersih dialirkan semula kepada Ikan</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-emerald-600 text-white font-bold w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
+                        <select id="seq-2" class="bg-slate-800 text-white p-2 rounded-xl border border-slate-700 w-full text-xs">
+                            <option value="">-- Langkah 2 --</option>
+                            <option value="A">Ikan menghasilkan Ammonia (sisa buangan)</option>
+                            <option value="B">Bakteria mengurai Ammonia kepada Nitrat</option>
+                            <option value="C">Tanaman menyerap Nitrat sebagai nutrien</option>
+                            <option value="D">Air bersih dialirkan semula kepada Ikan</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-emerald-600 text-white font-bold w-6 h-6 rounded-full flex items-center justify-center text-xs">3</span>
+                        <select id="seq-3" class="bg-slate-800 text-white p-2 rounded-xl border border-slate-700 w-full text-xs">
+                            <option value="">-- Langkah 3 --</option>
+                            <option value="A">Ikan menghasilkan Ammonia (sisa buangan)</option>
+                            <option value="B">Bakteria mengurai Ammonia kepada Nitrat</option>
+                            <option value="C">Tanaman menyerap Nitrat sebagai nutrien</option>
+                            <option value="D">Air bersih dialirkan semula kepada Ikan</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-emerald-600 text-white font-bold w-6 h-6 rounded-full flex items-center justify-center text-xs">4</span>
+                        <select id="seq-4" class="bg-slate-800 text-white p-2 rounded-xl border border-slate-700 w-full text-xs">
+                            <option value="">-- Langkah 4 --</option>
+                            <option value="A">Ikan menghasilkan Ammonia (sisa buangan)</option>
+                            <option value="B">Bakteria mengurai Ammonia kepada Nitrat</option>
+                            <option value="C">Tanaman menyerap Nitrat sebagai nutrien</option>
+                            <option value="D">Air bersih dialirkan semula kepada Ikan</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('modal-feedback').innerText = "";
+            const actionBtn = document.getElementById('modal-action-btn');
+            actionBtn.innerText = gameState.station3Completed ? "Diselesaikan ✅" : "Sahkan & Aktifkan Konsol";
+            actionBtn.onclick = () => {
+                if (gameState.station3Completed) { closeModal(); return; }
+                const q1 = document.getElementById('seq-1').value;
+                const q2 = document.getElementById('seq-2').value;
+                const q3 = document.getElementById('seq-3').value;
+                const q4 = document.getElementById('seq-4').value;
+
+                if (!q1 || !q2 || !q3 || !q4) {
+                    document.getElementById('modal-feedback').className = "text-amber-400 text-xs font-semibold";
+                    document.getElementById('modal-feedback').innerText = "⚠️ Sila lengkapkan keempat-empat langkah kitaran!";
+                    return;
+                }
+
+                pendingAnswers = { station: 's3', isCorrect: (q1 === 'A' && q2 === 'B' && q3 === 'C' && q4 === 'D') };
+                openConfidenceModal();
+            };
+        }
+
+        function openConfidenceModal() {
+            document.getElementById('confidence-modal').classList.remove('hidden');
+        }
+
+        function confirmSubmissionWithConfidence(confidenceLevel) {
+            document.getElementById('confidence-modal').classList.add('hidden');
+            const { station, isCorrect } = pendingAnswers;
+
+            gameState.attempts[station]++;
+            if (gameState.attempts[station] === 1 && isCorrect) {
+                gameState.firstTrySuccess[station] = true;
+            }
+            gameState.confidenceLog[station] = confidenceLevel;
+
+            if (isCorrect) {
+                if (station === 's1') {
+                    gameState.station1Completed = true;
+                    gameState.door1Unlocked = true;
+                    unlockDoorMeshVisual('door1');
+                    alert("🎉 TEPAT! Pam Air DIAKTIFKAN & Pintu 1 Terbuka!");
+                } else if (station === 's2') {
+                    gameState.station2Completed = true;
+                    gameState.door2Unlocked = true;
+                    unlockDoorMeshVisual('door2');
+                    alert("🎉 SYABAS! Loceng Sifon DIAKTIFKAN & Pintu 2 Terbuka!");
+                } else if (station === 's3') {
+                    gameState.station3Completed = true;
+                    gameState.door3Unlocked = true;
+                    unlockDoorMeshVisual('door3');
+                    alert("🏆 TAHANIAH! Ekosistem Akuaponik Makmal Kembali Seimbang & Pintu Keluar Terbuka!");
+                }
+                saveGameState();
+                closeModal();
+
+                if (station === 's3') {
+                    openDashboardModal();
+                }
+            } else {
+                document.getElementById('modal-feedback').className = "text-red-400 text-xs font-semibold animate-bounce";
+                if (station === 's1') {
+                    document.getElementById('modal-feedback').innerText = "❌ Kurang Tepat. Petua: Bakteria menukar ammonia kepada nitrat.";
+                } else if (station === 's2') {
+                    document.getElementById('modal-feedback').innerText = "❌ Kurang Tepat. Petua: Loceng sifon digunakan dalam Ebb & Flow.";
+                } else if (station === 's3') {
+                    document.getElementById('modal-feedback').innerText = "❌ Urutan silap. Petua: Bermula daripada sisa ikan (ammonia).";
+                }
+                saveGameState();
+            }
+        }
+
+        function openDashboardModal() {
+            isModalOpen = true;
+            document.getElementById('dashboard-modal').classList.remove('hidden');
+
+            const totalAttempts = gameState.attempts.s1 + gameState.attempts.s2 + gameState.attempts.s3;
+            const firstTryCount = (gameState.firstTrySuccess.s1 ? 1 : 0) + (gameState.firstTrySuccess.s2 ? 1 : 0) + (gameState.firstTrySuccess.s3 ? 1 : 0);
+            const accuracy = Math.round((firstTryCount / 3) * 100);
+
+            document.getElementById('dash-attempts').innerText = totalAttempts;
+            document.getElementById('dash-accuracy').innerText = `${accuracy}%`;
+
+            const confs = Object.values(gameState.confidenceLog);
+            const confCount = confs.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+            let dominant = "Yakin";
+            let maxC = 0;
+            for (let c in confCount) {
+                if (confCount[c] > maxC) { maxC = confCount[c]; dominant = c; }
+            }
+            document.getElementById('dash-confidence').innerText = dominant;
+        }
+
+        function closeModal() {
+            isModalOpen = false;
+            document.getElementById('station-modal').classList.add('hidden');
+            document.getElementById('dashboard-modal').classList.add('hidden');
+        }
+
+        function updateHUDStatus() {
+            const b1 = document.getElementById('badge-pintu1');
+            const b2 = document.getElementById('badge-pintu2');
+            const b3 = document.getElementById('badge-pintu3');
+
+            if (gameState.door1Unlocked) { b1.classList.remove('opacity-50'); b1.classList.add('text-emerald-400', 'border-emerald-500/50'); }
+            if (gameState.door2Unlocked) { b2.classList.remove('opacity-50'); b2.classList.add('text-emerald-400', 'border-emerald-500/50'); }
+            if (gameState.door3Unlocked) { b3.classList.remove('opacity-50'); b3.classList.add('text-emerald-400', 'border-emerald-500/50'); }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- 15. ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            updatePlayerMovement();
+            updateCamera();
+            checkProximityAndInteractions();
+            updateFPS();
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = function() {
+            init();
+        };
+    </script>
+</body>
+</html>
